@@ -1,6 +1,7 @@
 import warnings
 from math import gcd, log2
 
+import torch
 import torch.nn as nn
 
 from .utils.channel_count import scn
@@ -16,8 +17,9 @@ class ConvBnAct(nn.Module):
         **conv_args: Keyword arguments passed to nn.Conv2d constructor.
     """
 
-    def __init__(self, activation_fn=nn.Mish, **conv_args) -> None:
+    def __init__(self, activation_fn=nn.Mish, no_act=False, **conv_args) -> None:
         super(ConvBnAct, self).__init__()
+        self.no_act = no_act
 
         if "bias" not in conv_args:
             conv_args["bias"] = False
@@ -29,7 +31,8 @@ class ConvBnAct(nn.Module):
 
         self.conv = nn.Conv2d(**conv_args)
         self.bn = nn.BatchNorm2d(conv_args["out_channels"])
-        self.activation = activation_fn()
+        if not no_act:
+            self.activation = activation_fn()
 
         self.init_weights()
 
@@ -37,7 +40,12 @@ class ConvBnAct(nn.Module):
         conv_init(self.conv)
 
     def forward(self, x):
-        return self.activation(self.bn(self.conv(x)))
+        x = self.bn(self.conv(x))
+
+        if not self.no_act:
+            x = self.activation(x)
+
+        return x
 
 
 class DepthwiseConv(nn.Module):
